@@ -1,0 +1,8 @@
+PYTHON_COLOR = "\033[94m"
+ARDUINO_COLOR = "\033[92m"
+RESET_COLOR = "\033[0m"
+ERROR_COLOR = "\033[91m"
+
+ARDUINO_PORT="/dev/cu.usbmodem1101"
+
+MIDI_INPUT_NAME = "Portable Grand Port 1"

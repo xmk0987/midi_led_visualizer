@@ -1,0 +1,32 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+.env
+
+# VS Code
+.vscode/
+
+# Python tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Arduino / PlatformIO build output
+build/
+.pio/
+
+# Temporary files
+*.tmp
+*.log
+
+# OS/editor swap files
+*.swp
+*.swo
