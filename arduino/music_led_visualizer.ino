@@ -3,18 +3,24 @@
 constexpr uint8_t DATA_PIN = 6;
 constexpr uint8_t NUM_LEDS = 78;
 
-constexpr uint8_t FIRST_NOTE_NUMBER = 21;
-constexpr uint8_t LAST_NOTE_NUMBER = 108;
+constexpr uint8_t MIDI_NOTE_COUNT = 128;
+
+constexpr uint8_t MY_KEYBOARD_FIRST_MIDI_NOTE = 21;
+constexpr uint8_t MY_KEYBOARD_LAST_MIDI_NOTE = 108;
 
 constexpr uint8_t FIRST_LED_INDEX = 75;
 constexpr uint8_t LAST_LED_INDEX = 2;
 
 constexpr int LED_STRIP_OFFSET = -1;
 
+
 CRGB leds[NUM_LEDS];
 
-bool activeNotes[128] = {false};
 bool ledsChanged = false;
+
+bool isPedalOn = false;
+bool activeNotes[MIDI_NOTE_COUNT] = {false};
+bool sustainedNotes[MIDI_NOTE_COUNT] = {false};
 
 uint8_t activeNotesPerLed[NUM_LEDS] = {0};
 
@@ -55,8 +61,8 @@ void handleConfig(String message) {
 int getLedFromNote(int note) {
   int ledIndex = map(
     note,
-    FIRST_NOTE_NUMBER,
-    LAST_NOTE_NUMBER,
+    MY_KEYBOARD_FIRST_MIDI_NOTE,
+    MY_KEYBOARD_LAST_MIDI_NOTE,
     FIRST_LED_INDEX,
     LAST_LED_INDEX
   );
@@ -124,9 +130,15 @@ void handleKeyboardPress(String message) {
     return;
   }
 
+  if (sustainedNotes[noteNumber]) {
+    sustainedNotes[noteNumber] = false;
+    activeNotes[noteNumber] = true;
+    turnOnLed(ledIndex);
+    return;
+  }
+
   activeNotes[noteNumber] = true;
   activeNotesPerLed[ledIndex]++;
-
   turnOnLed(ledIndex);
 }
 
@@ -159,12 +171,51 @@ void handleKeyboardRelease(String message) {
 
   activeNotes[noteNumber] = false;
 
+  if (isPedalOn) {
+    sustainedNotes[noteNumber] = true;
+    return;
+  }
+
   if (activeNotesPerLed[ledIndex] > 0) {
     activeNotesPerLed[ledIndex]--;
   }
 
   if (activeNotesPerLed[ledIndex] == 0) {
     turnOffLed(ledIndex);
+  }
+}
+
+void handlePedalOn(String message) {
+  isPedalOn = true;
+}
+
+void handlePedalOff(String message) {
+  isPedalOn = false;
+
+  for (int note = 0; note < MIDI_NOTE_COUNT; note++) {
+    if (!sustainedNotes[note]) {
+      continue;
+    }
+
+    sustainedNotes[note] = false;
+
+    if (activeNotes[note]) {
+      continue;
+    }
+
+    int ledIndex = getLedFromNote(note);
+
+    if (!isValidLedIndex(ledIndex)) {
+      continue;
+    }
+
+    if (activeNotesPerLed[ledIndex] > 0) {
+      activeNotesPerLed[ledIndex]--;
+    }
+
+    if (activeNotesPerLed[ledIndex] == 0) {
+      turnOffLed(ledIndex);
+    }
   }
 }
 
@@ -195,8 +246,17 @@ void loop() {
   if (message.startsWith("PRESS,")) {
     handleKeyboardPress(message);
     shouldAcknowledge = true;
+
   } else if (message.startsWith("RELEASE,")) {
     handleKeyboardRelease(message);
+    shouldAcknowledge = true;
+
+  } else if (message.startsWith("PEDAL_ON")) {
+    handlePedalOn(message);
+    shouldAcknowledge = true;
+
+  } else if (message.startsWith("PEDAL_OFF")) {
+    handlePedalOff(message);
     shouldAcknowledge = true;
   }
 
