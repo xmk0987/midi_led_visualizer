@@ -1,26 +1,30 @@
 import mido
 from terminal_logs import print_python_log
 from constants import MIDI_INPUT_NAME
-from arduino_serial import write_to_arduino, read_and_log_arduino
+from arduino_serial import write_to_arduino, read_and_log_arduino,read_from_arduino
 
-def handle_key_release(message: mido.Message):
-    event = "RELEASE"
-    note_name = message.note
-    
-    arduino_message = f"{event},{note_name}" 
-    print_python_log(f"RELEASE note={message.note}")
-    write_to_arduino(arduino_message)
-    read_and_log_arduino()
+"""Sends one MIDI event and waits until Arduino is ready for another."""
+def send_midi_event(message: str) -> None:
+    write_to_arduino(message)
 
-def handle_key_press(message: mido.Message):
-    event = "PRESS"
-    note_name = message.note
-    velocity = message.velocity
+    response = read_from_arduino()
 
-    arduino_message = f"{event},{note_name},{velocity}" 
-    print_python_log(f"PRESS note={message.note} velocity={message.velocity}")
-    write_to_arduino(arduino_message)
-    read_and_log_arduino()
+    if response != "OK":
+        print_python_log(
+            f"Unexpected Arduino response: {response}",
+            True,
+        )
+        
+def handle_key_release(message: mido.Message) -> None:
+    send_midi_event(
+        f"RELEASE,{message.note}"
+    )
+
+
+def handle_key_press(message: mido.Message) -> None:
+    send_midi_event(
+        f"PRESS,{message.note},{message.velocity}"
+    )
 
 def listen_to_midi():
     with mido.open_input(MIDI_INPUT_NAME) as midi_input:

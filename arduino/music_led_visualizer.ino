@@ -9,9 +9,7 @@ constexpr uint8_t LAST_NOTE_NUMBER = 108;
 constexpr uint8_t FIRST_LED_INDEX = 75;
 constexpr uint8_t LAST_LED_INDEX = 2;
 
-constexpr unsigned long LED_REFRESH_INTERVAL_MS = 5;
-
-unsigned long lastLedRefresh = 0;
+constexpr int LED_STRIP_OFFSET = -1;
 
 CRGB leds[NUM_LEDS];
 
@@ -63,7 +61,7 @@ int getLedFromNote(int note) {
     LAST_LED_INDEX
   );
 
-  return ledIndex - 1;
+  return ledIndex + LED_STRIP_OFFSET;
 }
 
 void turnOnLed(uint8_t index) {
@@ -114,7 +112,7 @@ void handleKeyboardPress(String message) {
     return;
   }
 
-  logMidiEvent("PRESS", noteNumber);
+  //logMidiEvent("PRESS", noteNumber);
 
   if (activeNotes[noteNumber]) {
     return;
@@ -147,7 +145,7 @@ void handleKeyboardRelease(String message) {
     return;
   }
 
-  logMidiEvent("RELEASE", noteNumber);
+  //logMidiEvent("RELEASE", noteNumber);
 
   if (!activeNotes[noteNumber]) {
     return;
@@ -180,27 +178,34 @@ void setup() {
 }
 
 void loop() {
-  while (Serial.available()) {
-    String message = Serial.readStringUntil('\n');
-    message.trim();
-
-    if (message.startsWith("CONFIG,")) {
-      handleConfig(message);
-    } else if (message.startsWith("PRESS,")) {
-      handleKeyboardPress(message);
-    } else if (message.startsWith("RELEASE,")) {
-      handleKeyboardRelease(message);
-    }
+  if (!Serial.available()) {
+    return;
   }
 
-  unsigned long now = millis();
+  String message = Serial.readStringUntil('\n');
+  message.trim();
 
-  if (
-    ledsChanged &&
-    now - lastLedRefresh >= LED_REFRESH_INTERVAL_MS
-  ) {
+  bool shouldAcknowledge = false;
+
+  if (message.startsWith("CONFIG,")) {
+    handleConfig(message);
+    return;
+  }
+
+  if (message.startsWith("PRESS,")) {
+    handleKeyboardPress(message);
+    shouldAcknowledge = true;
+  } else if (message.startsWith("RELEASE,")) {
+    handleKeyboardRelease(message);
+    shouldAcknowledge = true;
+  }
+
+  if (ledsChanged) {
     FastLED.show();
     ledsChanged = false;
-    lastLedRefresh = now;
+  }
+
+  if (shouldAcknowledge) {
+    Serial.println("OK");
   }
 }
