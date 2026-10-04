@@ -18,6 +18,7 @@ CRGB leds[NUM_LEDS];
 
 bool ledsChanged = false;
 
+bool shouldSustainPedalLeds = false;
 bool isPedalOn = false;
 bool activeNotes[MIDI_NOTE_COUNT] = {false};
 bool sustainedNotes[MIDI_NOTE_COUNT] = {false};
@@ -37,12 +38,14 @@ void handleConfig(String message) {
   int secondComma = message.indexOf(',', firstComma + 1);
   int thirdComma = message.indexOf(',', secondComma + 1);
   int fourthComma = message.indexOf(',', thirdComma + 1);
+  int fifthComma = message.indexOf(',', fourthComma + 1);
 
   if (
     firstComma == -1 ||
     secondComma == -1 ||
     thirdComma == -1 ||
-    fourthComma == -1
+    fourthComma == -1 ||
+    fifthComma == -1
   ) {
     Serial.println("ERROR,Invalid basic config format");
     return;
@@ -51,7 +54,9 @@ void handleConfig(String message) {
   uint8_t red = message.substring(firstComma + 1, secondComma).toInt();
   uint8_t green = message.substring(secondComma + 1, thirdComma).toInt();
   uint8_t blue = message.substring(thirdComma + 1, fourthComma).toInt();
-  brightness = message.substring(fourthComma + 1).toInt();
+  brightness = message.substring(fourthComma + 1, fifthComma).toInt();
+
+  shouldSustainPedalLeds = message.substring(fifthComma + 1).toInt() == 1;
 
   color = CRGB(red, green, blue);
   updateLedBrightness(brightness);
@@ -171,7 +176,7 @@ void handleKeyboardRelease(String message) {
 
   activeNotes[noteNumber] = false;
 
-  if (isPedalOn) {
+  if (isPedalOn && shouldSustainPedalLeds) {
     sustainedNotes[noteNumber] = true;
     return;
   }

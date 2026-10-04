@@ -49,6 +49,23 @@ def get_color_input():
 
         return rgb
     
+def get_should_sustain_leds_on_pedal():
+    while True:
+        should_sustain_input = input(
+            f"{PYTHON_COLOR}Python: Enter y/n whether to sustain leds on pedal hold or 'q' to quit: {RESET_COLOR}"
+        )
+        
+        lower_input = should_sustain_input.lower()
+
+        if lower_input == "q":
+            return None
+        
+        if lower_input not in ("y", "n"):
+            print_python_log("Have to choose y or n", True)
+            continue
+
+        return lower_input == "y"
+    
 def get_brigthness_input():
     while True:   
         brightness_input = input(
@@ -79,8 +96,9 @@ def get_and_send_config_to_arduino():
         return
     
     brightness = get_brigthness_input()
+    should_sustain_leds = int(get_should_sustain_leds_on_pedal())
     
     write_to_arduino(
-        f"CONFIG,{rgb[0]},{rgb[1]},{rgb[2]},{brightness}"
+        f"CONFIG,{rgb[0]},{rgb[1]},{rgb[2]},{brightness},{should_sustain_leds}"
     )
     read_and_log_arduino()
