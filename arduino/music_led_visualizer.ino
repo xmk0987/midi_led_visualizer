@@ -9,7 +9,16 @@ constexpr uint8_t LAST_NOTE_NUMBER = 108;
 constexpr uint8_t FIRST_LED_INDEX = 75;
 constexpr uint8_t LAST_LED_INDEX = 2;
 
+constexpr unsigned long LED_REFRESH_INTERVAL_MS = 5;
+
+unsigned long lastLedRefresh = 0;
+
 CRGB leds[NUM_LEDS];
+
+bool activeNotes[128] = {false};
+bool ledsChanged = false;
+
+uint8_t activeNotesPerLed[NUM_LEDS] = {0};
 
 uint8_t brightness = 50;
 CRGB color = CRGB(0,0,0);
@@ -59,29 +68,66 @@ int getLedFromNote(int note) {
 
 void turnOnLed(uint8_t index) {
   leds[index] = color;
-  FastLED.show();
+  ledsChanged = true;
 }
 
 void turnOffLed(uint8_t index) {
   leds[index] = CRGB::Black;
-  FastLED.show();
+  ledsChanged = true;
+}
+
+bool isValidLedIndex(int ledIndex) {
+  if (ledIndex < 0 || ledIndex >= NUM_LEDS) {
+    Serial.println("ERROR,LED index out of range");
+    return false;
+  }
+
+  return true;
+}
+
+void logMidiEvent(const char* event, int noteNumber, int velocity = -1) {
+  Serial.print(event);
+  Serial.print(",");
+  Serial.print(noteNumber);
+
+  if (velocity >= 0) {
+    Serial.print(",");
+    Serial.print(velocity);
+  }
+
+  Serial.println();
 }
 
 void handleKeyboardPress(String message) {
   int firstComma = message.indexOf(',');
   int secondComma = message.indexOf(',', firstComma + 1);
 
-  if (
-    firstComma == -1 ||
-    secondComma == -1
-  ) {
+  if (firstComma == -1 || secondComma == -1) {
     Serial.println("ERROR,Invalid keyboard press format");
     return;
   }
 
   int noteNumber = message.substring(firstComma + 1, secondComma).toInt();
-  int velocity = message.substring(secondComma + 1).toInt();
+
+  if (noteNumber < 0 || noteNumber > 127) {
+    Serial.println("ERROR,Invalid MIDI note");
+    return;
+  }
+
+  logMidiEvent("PRESS", noteNumber);
+
+  if (activeNotes[noteNumber]) {
+    return;
+  }
+
   int ledIndex = getLedFromNote(noteNumber);
+
+  if (!isValidLedIndex(ledIndex)) {
+    return;
+  }
+
+  activeNotes[noteNumber] = true;
+  activeNotesPerLed[ledIndex]++;
 
   turnOnLed(ledIndex);
 }
@@ -89,17 +135,39 @@ void handleKeyboardPress(String message) {
 void handleKeyboardRelease(String message) {
   int firstComma = message.indexOf(',');
 
-  if (
-    firstComma == -1 
-  ) {
+  if (firstComma == -1) {
     Serial.println("ERROR,Invalid keyboard release format");
     return;
   }
 
   int noteNumber = message.substring(firstComma + 1).toInt();
+
+  if (noteNumber < 0 || noteNumber > 127) {
+    Serial.println("ERROR,Invalid MIDI note");
+    return;
+  }
+
+  logMidiEvent("RELEASE", noteNumber);
+
+  if (!activeNotes[noteNumber]) {
+    return;
+  }
+
   int ledIndex = getLedFromNote(noteNumber);
 
-  turnOffLed(ledIndex);
+  if (!isValidLedIndex(ledIndex)) {
+    return;
+  }
+
+  activeNotes[noteNumber] = false;
+
+  if (activeNotesPerLed[ledIndex] > 0) {
+    activeNotesPerLed[ledIndex]--;
+  }
+
+  if (activeNotesPerLed[ledIndex] == 0) {
+    turnOffLed(ledIndex);
+  }
 }
 
 void setup() {
@@ -112,18 +180,27 @@ void setup() {
 }
 
 void loop() {
-  if (!Serial.available()) {
-    return;
+  while (Serial.available()) {
+    String message = Serial.readStringUntil('\n');
+    message.trim();
+
+    if (message.startsWith("CONFIG,")) {
+      handleConfig(message);
+    } else if (message.startsWith("PRESS,")) {
+      handleKeyboardPress(message);
+    } else if (message.startsWith("RELEASE,")) {
+      handleKeyboardRelease(message);
+    }
   }
 
-  String message = Serial.readStringUntil('\n');
-  message.trim();
+  unsigned long now = millis();
 
-  if (message.startsWith("CONFIG,")) {
-    handleConfig(message);
-  } else if (message.startsWith("PRESS,")) {
-    handleKeyboardPress(message);
-  } else if (message.startsWith("RELEASE,")) {
-    handleKeyboardRelease(message);
+  if (
+    ledsChanged &&
+    now - lastLedRefresh >= LED_REFRESH_INTERVAL_MS
+  ) {
+    FastLED.show();
+    ledsChanged = false;
+    lastLedRefresh = now;
   }
 }

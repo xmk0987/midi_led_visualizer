@@ -1,4 +1,4 @@
-from python.constants import (
+from constants import (
     ARDUINO_COLOR,
     ERROR_COLOR,
     PYTHON_COLOR,

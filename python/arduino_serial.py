@@ -1,12 +1,13 @@
 import time
 import serial
-from python.constants import ARDUINO_PORT
-from python.terminal_logs import print_arduino_log
+from constants import ARDUINO_PORT
+from terminal_logs import print_arduino_log
 
 ARDUINO = serial.Serial(
     ARDUINO_PORT,
     115200,
 )
+
 def write_read(x): 
     ARDUINO.write(bytes(x, 'utf-8')) 
     time.sleep(0.05) 
