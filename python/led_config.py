@@ -1,7 +1,24 @@
 
+from tkinter import Tk, colorchooser
 from constants import RESET_COLOR, PYTHON_COLOR
 from arduino_serial import read_and_log_arduino, write_to_arduino
 from terminal_logs import print_python_log
+
+def get_color_from_picker():
+    root = Tk()
+    root.withdraw()
+
+    rgb, _ = colorchooser.askcolor(
+        parent=root,
+        title="Choose LED color",
+    )
+
+    root.destroy()
+
+    if rgb is None:
+        return None
+
+    return list(rgb)
 
 def get_color_input():
     while True:
@@ -56,7 +73,11 @@ def get_brigthness_input():
     
 def get_and_send_config_to_arduino():
     "Gets config to arduino"
-    rgb = get_color_input()
+    rgb = get_color_from_picker()
+    
+    if rgb is None:
+        return
+    
     brightness = get_brigthness_input()
     
     write_to_arduino(
